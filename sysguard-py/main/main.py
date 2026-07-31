@@ -1,10 +1,11 @@
 import subprocess
 import sys
+from inotify_simple import INotify, flags
 
 def check_for_clamav():
     try:
         result =  subprocess.run(
-            ["clamscan","--version"],
+            ["clamscan"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=10
@@ -37,6 +38,3 @@ if not check_for_clamav():
     sys.exit(1)
 
 print(" ClamAV is ready.")
-
-def run_clamav():
-    
