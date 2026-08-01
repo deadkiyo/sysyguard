@@ -197,7 +197,12 @@ def main():
         
         #start the monitor
     watch_dir = "~/Downloads"
-    extensions = {'.exe', '.msi', '.bin', '.deb', '.rpm', '.zip', '.appimage'}
+    extensions = {
+        '.exe', '.msi', '.bin', '.deb', '.rpm', '.zip', '.appimage',
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx',  # Office files
+        '.js', '.jar', '.apk',                     # Code/Android
+        '.sh', '.py', '.pl', '.rb'                 # Scripts
+    }
         
     monitor = downloadlymonitory(watch_dir, extensions)
     monitor.run()
