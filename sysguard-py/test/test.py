@@ -8,10 +8,10 @@ import time
 def check_for_clamav(): # looks for clamav instalation
     try:
         result =  subprocess.run(
-            ["clamscan"], #run clamscan command
+            ["clamscan", "--version"], #run clamscan command
             stdout=subprocess.PIPE, #get output
             stderr=subprocess.PIPE, #get error
-            timeout=10 
+            timeout=5
         )
         if result.returncode== 0: 
             print("clamav is installed ")
@@ -72,7 +72,7 @@ class downloadlymonitory: #montoring files
         try:
             size = os.path.getsize(filePath)
             if str(filePath) not in self.active_downloads: 
-                self.active_downloads[str(filePath).name] = {
+                self.active_downloads[str(filePath)] = {
                 'size': size,
                 'stable_count': 0,
                 'first_seen': time.time()
@@ -89,7 +89,7 @@ class downloadlymonitory: #montoring files
 #info gets the size etc 
         for filePath, info in self.active_downloads.items(): 
             try:
-                current_size = os.Path.getsize(filePath)
+                current_size = os.path.getsize(filePath)
                 old_size = info['size']
 
                 if current_size == old_size:
@@ -120,8 +120,9 @@ class downloadlymonitory: #montoring files
             )
             if result.returncode == 0:
                 print(f"this file is clean: {Path(filePath).name}")
-            elif result.returncode == 2:
+            elif result.returncode == 1:
                 print (f" infection found: {Path(filePath).name}")
+                self.quarantine_file(filePath)
             else:
                 print(f"scan didnt work: {result.stderr.strip()}")
         
@@ -187,12 +188,12 @@ class downloadlymonitory: #montoring files
     
 def main():
     #check if calmav is installed 
-    print("Running ClamAV check...")
+    print("running clavam check")
     if not check_for_clamav():
         print("\n ClamAV is not ready.")
-        print("Please install ClamAV and run 'sudo freshclam'.")
+        print("please install clamav and run 'sudo freshclam'.")
         sys.exit(1)
-    print(" ClamAV is ready.")
+    print(" clamav is ready.")
         
         #start the monitor
     watch_dir = "~/Downloads"
