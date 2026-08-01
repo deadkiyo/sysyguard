@@ -20,10 +20,10 @@
 ---
 #### to do:
  - part 1:
-    - [ ] Detect new downloads
-    - [ ] Wake up when a new file appears
-    - [ ] Scan the file with ClamAV
-    - [ ] Log the result
-    - [ ] Move infected files to quarantine
-    - [ ] Return to idle
+    - [x] Detect new downloads
+    - [x] Wake up when a new file appears
+    - [x] Scan the file with ClamAV
+    - [x] Log the result
+    - [x] Move infected files to quarantine
+    - [x] Return to idle
 
