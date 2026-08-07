@@ -33,10 +33,10 @@ def check_for_clamav(): # looks for clamav instalation
         print(f"an unexpected error: {e}")
         return False
     
-print("Running ClamAV check...")
+print("Running clamav check...")
 
 if not check_for_clamav():
-    print("\n  ClamAV is not ready.")
+    print("\n  clamav is not ready.")
     print("Please install ClamAV and run 'sudo freshclam'. and ")
     sys.exit(1)
 
@@ -45,7 +45,16 @@ print(" ClamAV is ready.")
 class downloadlymonitory: #montoring files
     def __init__(self, watch_dir, scan_extensions=None):
         self.watch_dir = Path(watch_dir).expanduser().resolve()
-        self.scan_extensions = scan_extensions or {'.exe', '.bin', '.msi', '.deb', '.rpm', '.zip'}
+        self.scan_extensions = scan_extensions or {
+            '.exe', '.bin', '.msi',
+            '.deb', '.rpm', '.zip',
+            '.js','.ps1','.bat',
+            '.sh', '.py', '.pl', '.rb'
+            '.jar', '.apk',
+            '.pdf', '.doc', '.docx', 
+            '.xls', '.xlsx','.appimage'
+            
+            }
 
         self.active_downloads = {}
 
@@ -58,7 +67,18 @@ class downloadlymonitory: #montoring files
         print(f"Press Ctrl+C to stop.")
 
     def should_scan(self, filename): #Check if file extension should be scanned
-        return Path(filename).suffix.lower() in self.scan_extensions
+        ext = Path(filename).suffix.lower()
+        if ext == ' ':
+            return True
+        
+        if ext in {'.jpg','.png','.gif','.mp3','.avi'}: # to not scan
+            return False
+        
+        if ext in {'.exe','.msi','.js','.py','.vbs','.bat','.ps1'}:
+            return True # to make sure to scan
+        
+        return True #eveything alse need to scan
+
     
     def is_hidden_or_temp(self,filename): #checks for hidden files 
         name = Path(filename).name
@@ -180,7 +200,7 @@ class downloadlymonitory: #montoring files
                 if self.active_downloads:
                     self.check_active_downloads()
         except KeyboardInterrupt:
-            print("stopping byeeeee")
+            print("stopping-byeee")
         except Exception as e:
             print(f"error{e}")
         finally:
