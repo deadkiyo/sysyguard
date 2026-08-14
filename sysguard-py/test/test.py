@@ -5,6 +5,10 @@ import os
 from pathlib import Path
 import time  
 
+
+def notify(text):
+    subprocess.run(["zenity", "--notification", "--text", text])
+
 def check_for_clamav(): # looks for clamav instalation
     try:
         result =  subprocess.run(
