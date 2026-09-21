@@ -1,90 +1,119 @@
+import notify2
 import subprocess
-import sys
-from inotify_simple import INotify, flags
-import os
 from pathlib import Path
+from inotify_simple import INotify, flags
 import time
+from queue import Queue
+from threading import Thread
+import sys
+import os
+
+notify2.init("ClamAV Real-Time Scanner")
+
+def notify(title, message, urgency=notify2.URGENCY_NORMAL):
+    notification = notify2.Notification(title, message)
+    notification.set_urgency(urgency)
+    notification.show()
 
 def check_for_clamav():
     try:
-        result =  subprocess.run(
-            ["clamscan","--version"],
+        result = subprocess.run(
+            ["clamscan", "--version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            text=True,
             timeout=5
         )
-        if result.returncode== 0:
-            print("clamav is installed ")
+
+        if result.returncode == 0:
+            print("ClamAV is installed.")
             return True
-        elif result.returncode== 1:
-            print("test for clamav installtion worked but found a virus on basic scan")
-            return True
-        else:
-            print(f"clamav is installed but found to have error (code:{result.returncode}).")
-            return False
-    
+
+        notify(
+            f"ClamAV check failed (code: {result.returncode})",
+            notify2.URGENCY_CRITICAL
+        )
+        return False
+
     except FileNotFoundError:
-        print("clamav is not installed or to be found in the path")
+        notify(
+            "ClamAV is not installed or cannot be found in PATH.",
+            notify2.URGENCY_CRITICAL
+        )
         return False
+
     except subprocess.TimeoutExpired:
-        print("clamav got time out")
+        notify(
+            "ClamAV check timed out.",
+            notify2.URGENCY_CRITICAL
+        )
         return False
+
     except Exception as e:
-        print(f"an unexpected error: {e}")
+        notify(
+            f"Unexpected error: {e}",
+            notify2.URGENCY_CRITICAL
+        )
         return False
-    
-print("Running clamav check...")
 
 if not check_for_clamav():
-    print("\n clamav is not ready.")
-    print("Please install ClamAV and run 'sudo freshclam'.")
+    notify(
+        "clamav is not ready, pls install clamav",
+        notify2.URGENCY_NORMAL
+    )
     sys.exit(1)
 
-print(" ClamAV is ready.")
-
-class downloadlymonitory: #montoring files
-    def __init__(self, watch_dir, scan_extensions=None):
+class downloadmonitor:
+    def __init__(self, watch_dir, workers=2):
         self.watch_dir = Path(watch_dir).expanduser().resolve()
-        self.scan_extensions = scan_extensions or {
-            '.exe', '.bin', '.msi',
-            '.deb', '.rpm', '.zip',
-            '.js','.ps1','.bat',
-            '.sh', '.py', '.pl', '.rb'
-            '.jar', '.apk',
-            '.pdf', '.doc', '.docx', 
-            '.xls', '.xlsx','.appimage'
-            
-            }
+        self.scan_queue = Queue()
+        self.pending = set()
         self.active_downloads = {}
-
         self.inotify = INotify()
-        self.watch_flags = flags.CREATE | flags.MOVED_TO | flags.CLOSE_WRITE #looks for create/move/closed 
-        self.wd = self.inotify.add_watch(str(self.watch_dir), self.watch_flags)
 
-        print(f"watching files {self.watch_dir}")
-        print(f"scanning stuff  {', '.join(self.scan_extensions)}")
-        print(f"Press Ctrl+C to stop.")
-    
-    def should_scan(self,filename):
-        ext = path(filename).suffix.lower()
-        if ext == ' ':
-            return True
-        
-        if ext in {'.jpg','.png','.gif','.mp3','.avi'}: 
-            return False
-        
-        if ext in {'.exe','.msi','.js','.py','.vbs','.bat','.ps1'}:
-            return True 
-        
-        return True 
+        self.watch_flags = (
+            flags.CREATE |
+            flags.MOVED_TO |
+            flags.CLOSE_WRITE
 
-    def is_hidden_or_temp(self,filename): 
-        name = Path(filename).name
-        return (
-            name.startswith('.')or
-            name.endswith('.part') or
-            name.endswith('.crdownload') or
-            name.endswith('~'))
+        )
+
+        self.inotify.add_watch(
+            str(self.watch_dir),
+            self.watch_flags
+        )
+
+        self.workers = []
+
+        for _ in range(workers):
+            worker = Thread(
+                target=self.scan_worker,
+                daemon=True
+            )
+            worker.start()
+            self.workers.append(worker)
+        
+    def queue_file(self, path):
+        path = path.resolve()
+        
+        if path in self.pending:
+            return
+        self.pending.add(path)
+        print(f"[+] Queued: {path.name}")
+        self.scan_queue.put(path)
+
+    def scan_worker(self):
+        while True:
+            file_path = self.scan_queue.get()
+
+            try:
+                self.scan_file(file_path)
+            except Exception as e:
+                print(f"Scan error: {e}")
+            finally:
+                self.pending.discard(file_path)
+                self.scan_queue.task_done()
+
 
     def track_download(self,filePath):
         try:
@@ -94,12 +123,11 @@ class downloadlymonitory: #montoring files
                 'size': size,
                 'stable_count': 0,
                 'first_seen': time.time()
-
-            }
+                }
             print(f"tracking{Path(filePath).name}) ({size} bytes")
         except FileNotFoundError:
             pass
-    
+
     def check_active_downloads(self):
         to_remove = []
 
@@ -113,7 +141,7 @@ class downloadlymonitory: #montoring files
 
                     if info['stable_count'] >=3:
                         print(f"download completed:{Path(filePath).name}")
-                        self.scan_file(filePath)
+                        self.queue_file(Path(filePath))
                         to_remove.append(filePath)
                 else:
                     info['size'] = current_size
@@ -136,7 +164,10 @@ class downloadlymonitory: #montoring files
             if result.returncode == 0:
                 print(f"this file is clean: {Path(filePath).name}")
             elif result.returncode == 1:
-                print (f" infection found: {Path(filePath).name}")
+                notify(
+                    f" infection found: {Path(filePath).name}",
+                    notify2.URGENCY_CRITICAL
+                    )
                 self.quarantine_file(filePath)
             else:
                 print(f"scan didnt work: {result.stderr.strip()}")
@@ -156,21 +187,21 @@ class downloadlymonitory: #montoring files
             dest = quarantine_dir / f"{filename}_{timestamp}"
             
             os.rename(filePath, dest)
-            print(f"Quarantined to: {dest}")
+            notify(
+                f"Quarantined to: {dest}",
+                notify2.URGENCY_CRITICAL
+            )
         except Exception as e:
-            print(f"Quarantine failed: {e}")
+            notify(
+                f"Quarantine failed: {e}",
+                notify2.URGENCY_CRITICAL
+                )
     
     def process_event(self,event):
         for flag in flags.from_mask(event.mask):
             if event.name:
                 filePath = self.watch_dir / event.name
                 
-                if self.is_hidden_or_temp(event.name):
-                    continue
-                
-                if not self.should_scan(event.name):
-                    continue               
-
                 if flag in (flag.CREATE, flags.MOVED_TO):
                     self.track_download(str(filePath))
 
@@ -180,41 +211,53 @@ class downloadlymonitory: #montoring files
                         time.sleep(0.5)
                         self.track_download(str(filePath))
     
+
+    def process_event(self, event):
+        file_path = self.watch_dir / event.name
+
+        if not file_path.is_file():
+            return
+
+        event_flags = flags.from_mask(event.mask)
+
+        if (
+            flags.CREATE in event_flags
+            or flags.MOVED_TO in event_flags
+            or flags.CLOSE_WRITE in event_flags
+        ):
+            self.track_download(file_path)
+
     def run(self):
         try:
             while True:
-                event = self.inotify.read(timeout=1000)
+                events = self.inotify.read(timeout=1000)
 
-                if event:
-                    for event in event:
-                        self.process_event(event)
+                for event in events:
+                    self.process_event(event)
 
                 if self.active_downloads:
                     self.check_active_downloads()
+
         except KeyboardInterrupt:
             print("stopping-byeee")
+
         except Exception as e:
-            print(f"error{e}")
+            print(f"error: {e}")
+
         finally:
-            self.inotify.rm_watch(self.wd) 
-    
+            self.inotify.rm_watch(self.wd)
+
 def main(): 
     print("running clavam check")
     if not check_for_clamav():
-        print("\n ClamAV is not ready.")
+        print("\n ClamAV i not ready.")
         print("please install clamav and run 'sudo freshclam'.")
         sys.exit(1)
     print(" clamav is ready.")
         
     watch_dir = "~/Downloads"
-    extensions = {
-        '.exe', '.msi', '.bin', '.deb', '.rpm', '.zip', '.appimage',
-        '.pdf', '.doc', '.docx', '.xls', '.xlsx',  
-        '.js', '.jar', '.apk',                     
-        '.sh', '.py', '.pl', '.rb'                 
-    }
         
-    monitor = downloadlymonitory(watch_dir, extensions)
+    monitor = downloadmonitor(watch_dir, workers=2)
     monitor.run()
 
 if __name__ == "__main__":
