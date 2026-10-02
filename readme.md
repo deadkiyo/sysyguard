@@ -16,7 +16,7 @@ This is a simple download folder scanner (for now) it scans the download folder 
 ---
 ### video:
 
-![test]()
+[![Video Title](https://img.youtube.com/vivcAQWKxtBAE/0.jpg)](https://youtu.be/vcAQWKxtBAE)   
 
 ---
 ### how to:
@@ -36,7 +36,10 @@ This is a simple download folder scanner (for now) it scans the download folder 
     - that all.
   
 ```
-you can use pip or other manager to but poetry is what i used for this project so it would be easy for you to or so what i think at least 
+you can use pip or other manager to
+but poetry is what i used for this project
+so it would be easy for you to
+or so what i think at least 
 ```
  - now run `poetry run python main/main.py`
 
