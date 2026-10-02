@@ -131,11 +131,7 @@ class downloadmonitor:
                 'stable_count': 0,
                 'first_seen': time.time()
                 }
-            notify(
-                title="tracking",
-                message=f"tracking{Path(filePath).name}) ({size} bytes",
-                urgency=notify2.URGENCY_NORMAL
-            )
+            print(f"tracking{Path(filePath).name}) ({size} bytes")
         except FileNotFoundError:
             pass
 
