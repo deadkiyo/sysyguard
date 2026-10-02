@@ -16,7 +16,7 @@ This is a simple download folder scanner (for now) it scans the download folder 
 ---
 ### video:
 
-![](https://www.youtube.com/watch?v=vcAQWKxtBAE)   
+  [![YouTube Video](https://img.youtube.com/vi/vcAQWKxtBAE/0.jpg)](https://www.youtube.com/watch?v=vcAQWKxtBAE)   
 
 ---
 ### how to:
