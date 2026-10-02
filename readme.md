@@ -59,6 +59,7 @@ or so what i think at least
 - [ ] create a config file
 - [ ] logging
 - [ ] multiple folder scanning
+- [ ] virus-total scanning opition
 ---
 ### License:
 MIT License
