@@ -8,7 +8,7 @@ from threading import Thread
 import sys
 import os
 
-notify2.init("ClamAV Real-Time Scanner")
+notify2.init("Clamav-bg")
 
 def notify(title, message, urgency=notify2.URGENCY_NORMAL):
     notification = notify2.Notification(title, message)
@@ -30,36 +30,41 @@ def check_for_clamav():
             return True
 
         notify(
-            f"ClamAV check failed (code: {result.returncode})",
-            notify2.URGENCY_CRITICAL
+            title= "clamav check failed",
+            message= f"ClamAV check failed (code: {result.returncode})",
+            urgency= notify2.URGENCY_CRITICAL
         )
         return False
 
     except FileNotFoundError:
         notify(
-            "ClamAV is not installed or cannot be found in PATH.",
-            notify2.URGENCY_CRITICAL
+            title= "clamav check failed",
+            message= "ClamAV is not installed or cannot be found in PATH.",
+            urgency= notify2.URGENCY_CRITICAL
         )
         return False
 
     except subprocess.TimeoutExpired:
         notify(
-            "ClamAV check timed out.",
-            notify2.URGENCY_CRITICAL
+            title= "clamav check failed",
+            message= "ClamAV check timed out.",
+            urgency= notify2.URGENCY_CRITICAL
         )
         return False
 
     except Exception as e:
         notify(
-            f"Unexpected error: {e}",
-            notify2.URGENCY_CRITICAL
+            title= "clamav check failed",
+            message= "Unexpected error: {e}",
+            urgency= notify2.URGENCY_CRITICAL
         )
         return False
 
 if not check_for_clamav():
     notify(
-        "clamav is not ready, pls install clamav",
-        notify2.URGENCY_NORMAL
+        title= "clamav check failed",
+        message= "clamav is not ready, pls install clamav",
+        urgency= notify2.URGENCY_NORMAL
     )
     sys.exit(1)
 
@@ -140,7 +145,11 @@ class downloadmonitor:
                     info['stable_count'] += 1 
 
                     if info['stable_count'] >=3:
-                        print(f"download completed:{Path(filePath).name}")
+                        notify(
+                            title= "file download completed",
+                            message= f"download completed:{Path(filePath).name}",
+                            urgency= notify2.URGENCY_NORMAL
+                        )
                         self.queue_file(Path(filePath))
                         to_remove.append(filePath)
                 else:
@@ -162,12 +171,19 @@ class downloadmonitor:
                 text=True
             )
             if result.returncode == 0:
-                print(f"this file is clean: {Path(filePath).name}")
+                notify(
+                    title= "clean",
+                    message= f"this file is clean: {Path(filePath).name}",
+                    urgency= notify2.URGENCY_NORMAL
+                )
+
             elif result.returncode == 1:
                 notify(
-                    f" infection found: {Path(filePath).name}",
-                    notify2.URGENCY_CRITICAL
+                    title= 'infected',
+                    message= f"infection found: {Path(filePath).name}",
+                    urgency= notify2.URGENCY_CRITICAL
                     )
+
                 self.quarantine_file(filePath)
             else:
                 print(f"scan didnt work: {result.stderr.strip()}")
@@ -188,29 +204,16 @@ class downloadmonitor:
             
             os.rename(filePath, dest)
             notify(
-                f"Quarantined to: {dest}",
-                notify2.URGENCY_CRITICAL
+                title= "Quarantined",
+                message= f"Quarantined to: {dest}",
+                urgency= notify2.URGENCY_CRITICAL
             )
         except Exception as e:
             notify(
-                f"Quarantine failed: {e}",
-                notify2.URGENCY_CRITICAL
+                title='Quarantined',
+                message=f"Quarantine failed: {e}",
+                urgency= notify2.URGENCY_CRITICAL
                 )
-    
-    def process_event(self,event):
-        for flag in flags.from_mask(event.mask):
-            if event.name:
-                filePath = self.watch_dir / event.name
-                
-                if flag in (flag.CREATE, flags.MOVED_TO):
-                    self.track_download(str(filePath))
-
-                elif flag == flags.CLOSE_WRITE:
-                    if str(filePath) not in self.active_downloads:
-              
-                        time.sleep(0.5)
-                        self.track_download(str(filePath))
-    
 
     def process_event(self, event):
         file_path = self.watch_dir / event.name
